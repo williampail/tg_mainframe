@@ -66,8 +66,8 @@ async def rewrite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /rewrite command - rewrite and publish forwarded post."""
     user_message = update.message
     
-    # Check if there's a forwarded message
-    if not user_message.reply_to_message or not user_message.reply_to_message.forward_from:
+    # Check if there's a forwarded message (reply to forwarded)
+    if not user_message.reply_to_message:
         await user_message.reply_text(
             "❌ **Нет пересланного поста**\n\n"
             "Сначала перешли пост из канала, затем отправь /rewrite"
@@ -75,6 +75,19 @@ async def rewrite(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     forwarded_msg = user_message.reply_to_message
+    
+    # Check if message is forwarded
+    is_forwarded = (
+        hasattr(forwarded_msg, 'forward_origin') and forwarded_msg.forward_origin
+        or hasattr(forwarded_msg, 'forward_from') and forwarded_msg.forward_from
+    )
+    
+    if not is_forwarded:
+        await user_message.reply_text(
+            "❌ **Это не пересланный пост**\n\n"
+            "Перешли пост из канала, затем отправь /rewrite"
+        )
+        return
     
     # Extract text
     text = forwarded_msg.text or forwarded_msg.caption
@@ -117,7 +130,13 @@ async def rewrite(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle forwarded messages - just acknowledge, wait for /rewrite."""
-    if update.message.forward_from or update.message.forward_from_chat:
+    is_forwarded = (
+        hasattr(update.message, 'forward_origin') and update.message.forward_origin
+        or hasattr(update.message, 'forward_from') and update.message.forward_from
+        or hasattr(update.message, 'forward_from_chat') and update.message.forward_from_chat
+    )
+    
+    if is_forwarded:
         await update.message.reply_text(
             "👌 **Пост получен!**\n\n"
             "Отправь /rewrite чтобы переписать и опубликовать"
