@@ -1,5 +1,5 @@
 services:
-  - type: web
+  - type: backend
     name: mainframe-bot
     env: python
     region: oregon
@@ -19,3 +19,4 @@ services:
         value: "google/gemma-2-9b-it:free"
       - key: WRITING_STYLE
         value: "Write in a friendly, engaging tone. Use clear and concise language. Add personal insights and make complex topics accessible."
+    autoDeploy: true
