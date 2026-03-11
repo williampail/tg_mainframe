@@ -15,7 +15,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "/Users/dim/project_lab/tg_mainframe"
+        "/Users/dim/project_lab"
       ]
     }
   }
