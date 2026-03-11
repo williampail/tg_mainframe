@@ -1,4 +1,7 @@
 import logging
+import signal
+import sys
+import os
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -16,6 +19,21 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+application = None
+
+
+def shutdown_handler(signum, frame):
+    """Handle shutdown signals gracefully."""
+    logger.info("Received shutdown signal, stopping bot...")
+    if application:
+        application.stop()
+    sys.exit(0)
+
+
+# Register signal handlers for graceful shutdown
+signal.signal(signal.SIGTERM, shutdown_handler)
+signal.signal(signal.SIGINT, shutdown_handler)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -78,6 +96,8 @@ async def handle_error(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     """Start the bot."""
+    global application
+    
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
     # Add handlers
@@ -95,7 +115,11 @@ def main():
     
     # Start the bot
     logger.info("Bot is starting...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    logger.info(f"Running on Render: {os.getenv('RENDER', 'Local')}")
+    application.run_polling(
+        allowed_updates=Update.ALL_TYPES,
+        timeout=30  # Long polling timeout
+    )
 
 
 if __name__ == "__main__":
