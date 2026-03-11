@@ -16,7 +16,7 @@ services:
       - key: OPENROUTER_API_KEY
         sync: false
       - key: MODEL
-        value: "google/gemma-2-9b-it:free"
+        value: "meta-llama/llama-3-8b-instruct:free"
       - key: WRITING_STYLE
         value: "Write in a friendly, engaging tone. Use clear and concise language. Add personal insights and make complex topics accessible."
     autoDeploy: true
