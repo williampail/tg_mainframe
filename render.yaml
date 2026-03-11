@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: mainframe-bot
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: CHANNEL_ID
+        value: "@mainframe_sh"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: MODEL
+        value: "google/gemma-2-9b-it:free"
+      - key: WRITING_STYLE
+        value: "Write in a friendly, engaging tone. Use clear and concise language. Add personal insights and make complex topics accessible."
