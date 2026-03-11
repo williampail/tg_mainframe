@@ -10,7 +10,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-from config import TELEGRAM_BOT_TOKEN
+from config import TELEGRAM_BOT_TOKEN, CHANNEL_ID
 from style_rewriter import rewrite_post
 from channel_publisher import publish_to_channel, publish_to_channel_with_media
 
@@ -39,59 +39,98 @@ signal.signal(signal.SIGINT, shutdown_handler)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command."""
     await update.message.reply_text(
-        "👋 Bot is ready!\n\n"
-        "Forward any post to me and I'll rewrite it in your style "
-        "and publish it to the channel.\n\n"
-        "Commands:\n"
-        "/start - Show this message\n"
-        "/status - Check bot status"
+        "🤖 **MAINFRAME Bot**\n\n"
+        "Я переписываю посты в стиле MAINFRAME и публикую в @mainframe_sh\n\n"
+        "**Как использовать:**\n"
+        "1. Перешли пост из другого канала\n"
+        "2. Отправь команду /rewrite\n"
+        "3. Я перепишу и опубликую\n\n"
+        "**Команды:**\n"
+        "/start - Эта справка\n"
+        "/rewrite - Переписать и опубликовать последний пересланный пост\n"
+        "/status - Проверить статус бота"
     )
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /status command."""
-    await update.message.reply_text("✅ Bot is running and ready to receive posts!")
+    await update.message.reply_text(
+        "✅ **Бот работает нормально**\n\n"
+        f"📡 Канал: `{CHANNEL_ID}`\n"
+        f"🌐 Render: `{os.getenv('RENDER', 'Local')}`\n\n"
+        "Готов переписывать посты!"
+    )
 
 
-async def handle_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle forwarded posts - rewrite and publish to channel."""
-    user_message = await update.message.reply_text("⏳ Processing...")
+async def rewrite(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /rewrite command - rewrite and publish forwarded post."""
+    user_message = update.message
+    
+    # Check if there's a forwarded message
+    if not user_message.reply_to_message or not user_message.reply_to_message.forward_from:
+        await user_message.reply_text(
+            "❌ **Нет пересланного поста**\n\n"
+            "Сначала перешли пост из канала, затем отправь /rewrite"
+        )
+        return
+    
+    forwarded_msg = user_message.reply_to_message
+    
+    # Extract text
+    text = forwarded_msg.text or forwarded_msg.caption
+    if not text:
+        await user_message.reply_text(
+            "❌ **Нет текста**\n\n"
+            "Перешлите пост с текстом или подписью к фото"
+        )
+        return
+    
+    # Step 1: Acknowledge
+    status_msg = await user_message.reply_text("⏳ **Принял!** Переписываю пост...")
     
     try:
-        # Get the original message (could be forwarded)
-        original_message = update.message.forward_from or update.message
-        
-        # Extract text
-        text = update.message.text or update.message.caption
-        if not text:
-            await user_message.edit_text("❌ Please forward a message with text or caption.")
-            return
-        
-        # Rewrite the post
-        await user_message.edit_text("✍️ Rewriting in your style...")
+        # Step 2: Rewrite
+        logger.info(f"Rewriting post: {text[:100]}...")
         rewritten_text = rewrite_post(text)
+        await status_msg.edit_text("✍️ **Переписал!** Публикую в канал...")
         
-        # Publish to channel
-        await user_message.edit_text("📢 Publishing to channel...")
-        
-        # Check if there's media
-        if update.message.photo:
-            # Get the largest photo
-            photo = update.message.photo[-1]
+        # Step 3: Publish
+        if forwarded_msg.photo:
+            photo = forwarded_msg.photo[-1]
             await publish_to_channel_with_media(rewritten_text, photo.file_id)
         else:
             await publish_to_channel(rewritten_text)
         
-        await user_message.edit_text("✅ Successfully published to channel!")
+        logger.info("Successfully published to channel")
+        await status_msg.edit_text(
+            "✅ **Опубликовано!**\n\n"
+            f"Пост добавлен в {CHANNEL_ID}"
+        )
         
     except Exception as e:
         logger.error(f"Error processing post: {e}")
-        await user_message.edit_text(f"❌ Error: {str(e)}")
+        await status_msg.edit_text(
+            f"❌ **Ошибка:** {str(e)[:200]}\n\n"
+            "Попробуй ещё раз или проверь логи"
+        )
+
+
+async def handle_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle forwarded messages - just acknowledge, wait for /rewrite."""
+    if update.message.forward_from or update.message.forward_from_chat:
+        await update.message.reply_text(
+            "👌 **Пост получен!**\n\n"
+            "Отправь /rewrite чтобы переписать и опубликовать"
+        )
 
 
 async def handle_error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle errors."""
     logger.error(f"Update {update} caused error {context.error}")
+    if update and update.effective_message:
+        await update.effective_message.reply_text(
+            f"⚠️ **Ошибка:** {str(context.error)[:100]}"
+        )
 
 
 def main():
@@ -103,11 +142,12 @@ def main():
     # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("status", status))
+    application.add_handler(CommandHandler("rewrite", rewrite))
     
-    # Handle forwarded messages (posts from other channels)
+    # Handle forwarded messages (acknowledge only)
     application.add_handler(MessageHandler(
-        filters.FORWARDED & (filters.TEXT | filters.CAPTION | filters.PHOTO),
-        handle_post
+        filters.FORWARDED,
+        handle_forward
     ))
     
     # Error handler
@@ -118,7 +158,7 @@ def main():
     logger.info(f"Running on Render: {os.getenv('RENDER', 'Local')}")
     application.run_polling(
         allowed_updates=Update.ALL_TYPES,
-        timeout=30  # Long polling timeout
+        timeout=30
     )
 
 
