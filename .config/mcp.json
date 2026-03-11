@@ -1,5 +1,8 @@
 {
   "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp"
+    },
     "github": {
       "command": "npx",
       "args": [
@@ -17,6 +20,10 @@
         "@modelcontextprotocol/server-filesystem",
         "/Users/dim/project_lab"
       ]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     }
   }
 }
