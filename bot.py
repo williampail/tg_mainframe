@@ -66,26 +66,39 @@ async def rewrite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /rewrite command - rewrite and publish forwarded post."""
     user_message = update.message
     
-    # Check if there's a forwarded message (reply to forwarded)
+    # Check if there's a replied message
     if not user_message.reply_to_message:
         await user_message.reply_text(
             "❌ **Нет пересланного поста**\n\n"
-            "Сначала перешли пост из канала, затем отправь /rewrite"
+            "1. Перешли пост из канала\n"
+            "2. Ответь на него командой /rewrite"
         )
         return
     
     forwarded_msg = user_message.reply_to_message
     
-    # Check if message is forwarded
-    is_forwarded = (
-        hasattr(forwarded_msg, 'forward_origin') and forwarded_msg.forward_origin
-        or hasattr(forwarded_msg, 'forward_from') and forwarded_msg.forward_from
-    )
+    # Debug: log message structure
+    logger.info(f"Message attributes: text={bool(forwarded_msg.text)}, caption={bool(forwarded_msg.caption)}")
+    logger.info(f"Forward origin: {getattr(forwarded_msg, 'forward_origin', None)}")
+    logger.info(f"Forward from: {getattr(forwarded_msg, 'forward_from', None)}")
+    logger.info(f"Forward from chat: {getattr(forwarded_msg, 'forward_from_chat', None)}")
+    
+    # Check if message is forwarded (TG API v21 uses forward_origin)
+    is_forwarded = False
+    
+    if hasattr(forwarded_msg, 'forward_origin') and forwarded_msg.forward_origin:
+        is_forwarded = True
+        logger.info(f"Forward origin type: {type(forwarded_msg.forward_origin)}")
+    elif hasattr(forwarded_msg, 'forward_from') and forwarded_msg.forward_from:
+        is_forwarded = True
+    elif hasattr(forwarded_msg, 'forward_from_chat') and forwarded_msg.forward_from_chat:
+        is_forwarded = True
     
     if not is_forwarded:
         await user_message.reply_text(
             "❌ **Это не пересланный пост**\n\n"
-            "Перешли пост из канала, затем отправь /rewrite"
+            "1. Перешли пост из канала\n"
+            "2. Ответь на него командой /rewrite"
         )
         return
     
